@@ -7,6 +7,7 @@
 #include <time.h>
 #include <signal.h>
 #include <string.h>
+#include <fcntl.h>
 
 #define BLOCK_SIZE 4096
 #define TIME_LIMIT 5
@@ -60,8 +61,13 @@ void process_directory(const char *dir_path) {
 
 int main() {
     char dir_path[1024];
+    struct sigaction sigact;
 
-    signal(SIGINT, handle_signal);
+    memset(&sigact, 0, sizeof(struct sigaction));
+    sigact.sa_handler = handle_signal;
+    sigprocmask(0, 0, &sigact.sa_mask);
+    sigact.sa_flags = 0;
+    sigaction(SIGINT, &sigact, (struct sigaction *)NULL); 
 
     while (1) {
         printf("\nВведите путь к каталогу (для выхода введите '!q'): ");
