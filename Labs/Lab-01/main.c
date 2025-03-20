@@ -6,12 +6,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define BLOCK_SIZE 1024  // Размер блока в байтах
+#define BLOCK_SIZE 512  // Размер блока в байтах
 #define TIME_LIMIT 5     // Ограничение по времени последнего доступа в днях
 #define INTERRUPT_COUNT 2 // Количество попыток прерывания, после которых выводится сообщение
 
-static volatile sig_atomic_t interrupt_count = 0; // Счетчик прерываний
-static volatile sig_atomic_t total_blocks = 0; // Общее количество блоков
+int interrupt_count = 0; // Счетчик прерываний
+int total_blocks = 0; // Общее количество блоков
 
 // Обработчик сигнала прерывания
 void handle_signal(int sig) {
@@ -24,15 +24,6 @@ void handle_signal(int sig) {
     }
 }
 
-// int is_directory(const char *dirpath) {
-//     DIR *dir = opendir(dirpath);
-//     if (dir) {
-//         closedir(dir);
-//         return 1; // Это каталог
-//     } else {
-//         return 0; // Не каталог или ошибка
-//     }
-// }
 // Функция запуска утилиты find в отдельном процессе
 void process_files(const char *dirpath) {
     pid_t pid;
@@ -63,6 +54,7 @@ void process_files(const char *dirpath) {
         perror("Error while processing find");
         exit(EXIT_FAILURE);
     } else { // Родительский процесс
+        waitpid(pid, NULL, 0); // Дожидаемся завершения
         close(pipefd[1]); // Закрываем запись
         char buffer[1024];
         ssize_t bytes_read;
@@ -88,9 +80,7 @@ void process_files(const char *dirpath) {
         if (bytes_read == -1) {
             perror("Error reading from pipe");
         }
-
         close(pipefd[0]);
-        waitpid(pid, NULL, 0); // Дожидаемся завершения
     }
 }
 
@@ -99,6 +89,7 @@ int main() {
     struct sigaction sigact;
 
     memset(&sigact, 0, sizeof(struct sigaction));
+    sigprocmask(0, 0, &sigact.sa_mask);
     sigact.sa_handler = handle_signal;
     sigaction(SIGINT, &sigact, NULL);
 
