@@ -1,36 +1,40 @@
-#!/bin/bash
+#!/bin/sh
 
-BLOCK_SIZE=512
-TIME_LIMIT=5
-total_blocks=0
 interrupt_count=0
+last_dir=""
+
+count_blocks() {
+    local files
+    local filesizes
+    local sum
+
+    # Находим все файлы, которые соответствуют условиям
+    files=`find "$last_dir" -type f -size +3 -atime -5d`
+    # Получаем размеры файлов
+    filesizes=`du -a $files | cut -d $'\t' -f 1 | tr '\n' '+'`
+    # Убираем лишний плюс в конце
+    filesizes=`echo "$filesizes" | sed 's/+$//'`
+    # Выполняем вычисление через expr
+    # Заменяем плюсы на пробелы, чтобы expr мог сложить числа
+    filesizes=`echo "$filesizes" | sed 's/+/ /g'`
+    sum=0
+    for size in $filesizes; do
+        sum=`expr $sum + $size`
+    done
+    echo $sum
+}
 
 handle_signal() {
+    local total_blocks
     interrupt_count=`expr $interrupt_count + 1`
     echo ""
     
     if [ $interrupt_count -eq 2 ]; then
-        echo -e "Interrupt signal (Ctrl+C) received twice. Total blocks read: $total_blocks"
+        total_blocks=`count_blocks $last_dir`
+        echo "Interrupt signal (Ctrl+C) received twice. Total blocks read: $total_blocks"
     fi
     echo "To exit, type '!q"
     return 0
-}
-
-# Функция для поиска файлов и подсчета их блоков
-find_files() {
-    local dir_path="$1"
-    last_dir="$dir_path"
-    local blocks_read=0
-
-    while read -r file_name file_size; do
-        blocks=`expr $file_size + $BLOCK_SIZE - 1`
-        blocks=`expr $blocks / $BLOCK_SIZE`
-        echo "Found file: $file_name, blocks: $blocks"
-        blocks_read=`expr $blocks_read + $blocks`
-    done < <(find "$dir_path" -type f -size +`expr $BLOCK_SIZE \* 3`c -atime -$TIME_LIMIT -exec stat -f"%N %z" {} \;)
-
-    echo "Total blocks read in this request: $blocks_read"
-    total_blocks=`expr $total_blocks + $blocks_read`  # Суммируем со всеми запросами
 }
 
 # Устанавливаем обработчик сигнала прерывания
@@ -51,6 +55,5 @@ while :; do
         continue
     fi
 
-    echo "Files larger than 3 blocks and modified within the last 5 days:"
-    find_files "$dir_path"
+    find $dir_path -type f -size +3 -atime -5d | (echo "Files larger than 3 blocks and modified within the last 5 days:"; cat)
 done
