@@ -26,7 +26,7 @@ find_files() {
         blocks=`expr $file_size + $BLOCK_SIZE - 1`
         blocks=`expr $blocks / $BLOCK_SIZE`
         echo "Found file: $file_name, blocks: $blocks"
-        blocks_read=$((blocks_read + blocks))
+        blocks_read=`expr $blocks_read + $blocks`
     done < <(find "$dir_path" -type f -size +`expr $BLOCK_SIZE \* 3`c -atime -$TIME_LIMIT -exec stat -f"%N %z" {} \;)
 
     echo "Total blocks read in this request: $blocks_read"
@@ -37,7 +37,7 @@ find_files() {
 trap handle_signal SIGINT
 
 # Запускаем основной цикл
-while true; do
+while :; do
     echo "Enter directory path (type '!q' to exit): "
     read -r dir_path
 
